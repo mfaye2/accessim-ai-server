@@ -5,12 +5,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const agent = require("./agent");
+const { repondre } = require("./agent");
 
 // ROUTE CHAT
 app.post("/chat", (req, res) => {
   const message = req.body.message;
-  const response = agent(message);
+const response = repondre(message);
   res.json({ reply: response });
 });
 
