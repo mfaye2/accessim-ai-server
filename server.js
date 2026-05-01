@@ -1,18 +1,22 @@
 const express = require("express");
-const bodyParser = require("body-parser");
-const { repondre } = require("./agent");
-
+const cors = require("cors");
 const app = express();
 
-app.use(bodyParser.json());
-app.use(express.static(".")); // sert index.html
+app.use(cors());
+app.use(express.json());
 
+const agent = require("./agent");
+
+// ROUTE CHAT
 app.post("/chat", (req, res) => {
   const message = req.body.message;
-  const reponse = repondre(message);
-  res.json({ reply: reponse });
+  const response = agent(message);
+  res.json({ reply: response });
 });
 
-app.listen(3000, () => {
-  console.log("Serveur lancé sur http://localhost:3000");
+// PORT RENDER OBLIGATOIRE
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Serveur lancé sur port " + PORT);
 });
