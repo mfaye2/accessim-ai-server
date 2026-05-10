@@ -14,6 +14,8 @@ app.post("/chat", async (req, res) => {
   try {
     const message = req.body.message;
 
+    console.log("Message reçu :", message);
+
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -21,19 +23,28 @@ app.post("/chat", async (req, res) => {
         "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        model: "gpt-4o-mini",
         input: message
       })
     });
 
     const data = await response.json();
 
+    console.log("Réponse OpenAI :", data);
+
+    if (!response.ok) {
+      return res.status(500).json({
+        reply: "Erreur OpenAI : " + JSON.stringify(data)
+      });
+    }
+
     res.json({
-      reply: data.output_text
+      reply: data.output_text || "OpenAI n’a pas renvoyé de texte."
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Erreur serveur :", error);
+
     res.status(500).json({
       reply: "Erreur serveur : impossible de répondre pour le moment."
     });
