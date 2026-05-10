@@ -41,7 +41,9 @@ app.post("/chat", async (req, res) => {
    console.log("Réponse OpenAI complète :", JSON.stringify(data, null, 2));
 
 res.json({
-  reply: data.output_text || JSON.stringify(data)
+  
+reply: data.output[0].content[0].text
+
 });
 
   } catch (error) {
