@@ -38,9 +38,11 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    res.json({
-      reply: data.output_text || "OpenAI n’a pas renvoyé de texte."
-    });
+   console.log("Réponse OpenAI complète :", JSON.stringify(data, null, 2));
+
+res.json({
+  reply: data.output_text || JSON.stringify(data)
+});
 
   } catch (error) {
     console.error("Erreur serveur :", error);
