@@ -13,6 +13,11 @@ app.get("/", (req, res) => {
 app.post("/chat", async (req, res) => {
   try {
     const message = req.body.message;
+    if (message.includes("test")) {
+  return res.json({
+    reply: "Réponse de test locale."
+  });
+}
 
     console.log("Message reçu :", message);
 
