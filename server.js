@@ -14,27 +14,21 @@ app.post("/chat", async (req, res) => {
   try {
     const message = req.body.message;
     const history = req.body.history || [];
-    if (message.includes("test")) {
-  return res.json({
-    reply: "Réponse de test locale."
-  });
-}
+
+    // Mode test local : ne consomme pas Gemini
+    if (message.toLowerCase().includes("test")) {
+      return res.json({
+        reply: "Réponse de test locale ✅ Le chatbot fonctionne sans appeler Gemini."
+      });
+    }
 
     console.log("Message reçu :", message);
 
-const historyText = history
-  .map((msg) => `${msg.role}: ${msg.content}`)
-  .join("\n");
+    const historyText = history
+      .map((msg) => `${msg.role}: ${msg.content}`)
+      .join("\n");
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        input: `
+    const prompt = `
 Tu es l'assistant IA du site Accessim AI.
 
 Accessim AI propose :
@@ -52,7 +46,7 @@ Ton rôle :
 - qualifier le besoin du visiteur
 - proposer de réserver un appel
 - rester court, clair et professionnel
-- ne jamais dire que tu es seulement une IA générale d'OpenAI
+- ne jamais dire que tu es seulement une IA générale
 
 Contact :
 Email : fayemouhamadoulatyr@gmail.com
@@ -64,28 +58,46 @@ ${historyText}
 
 Dernière question du visiteur :
 ${message}
-` 
+`;
 
-      })
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ]
+        })
+      }
+    );
 
     const data = await response.json();
 
-    console.log("Réponse OpenAI :", data);
+    console.log("Réponse Gemini :", data);
 
     if (!response.ok) {
       return res.status(500).json({
-        reply: "Erreur OpenAI : " + JSON.stringify(data)
+        reply: "Erreur Gemini : " + JSON.stringify(data)
       });
     }
 
-   console.log("Réponse OpenAI complète :", JSON.stringify(data, null, 2));
+    const reply =
+      data.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "Gemini n’a pas renvoyé de texte.";
 
-res.json({
-
-reply: data.output[0].content[0].text
-
-});
+    res.json({
+      reply: reply
+    });
 
   } catch (error) {
     console.error("Erreur serveur :", error);
