@@ -13,6 +13,7 @@ app.get("/", (req, res) => {
 app.post("/chat", async (req, res) => {
   try {
     const message = req.body.message;
+    const history = req.body.history || [];
     if (message.includes("test")) {
   return res.json({
     reply: "Réponse de test locale."
@@ -20,6 +21,10 @@ app.post("/chat", async (req, res) => {
 }
 
     console.log("Message reçu :", message);
+
+const historyText = history
+  .map((msg) => `${msg.role}: ${msg.content}`)
+  .join("\n");
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -54,7 +59,10 @@ Email : fayemouhamadoulatyr@gmail.com
 Téléphone : 06 41 93 33 63
 Calendly : https://calendly.com/fayelatyr61/30min
 
-Question du visiteur :
+Historique de la conversation :
+${historyText}
+
+Dernière question du visiteur :
 ${message}
 ` 
 
