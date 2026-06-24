@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
@@ -12,6 +13,16 @@ app.get("/", (req, res) => {
 
 app.post("/chat", async (req, res) => {
   try {
+    const apiKey = process.env.GEMINI_API_KEY_2 || process.env.GEMINI_API_KEY;
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+    if (!apiKey) {
+      return res.status(500).json({
+        reply:
+          "Clé Gemini manquante. Défini la variable d'environnement GEMINI_API_KEY_2 ou GEMINI_API_KEY."
+      });
+    }
+
     const message = req.body.message;
     const history = req.body.history || [];
 
@@ -60,39 +71,72 @@ Dernière question du visiteur :
 ${message}
 `;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
-            }
-          ]
-        })
+    async function callGemini(promptText) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const maxAttempts = 3;
+      let lastData = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: promptText
+                  }
+                ]
+              }
+            ]
+          })
+        });
+
+        const data = await response.json();
+        lastData = data;
+
+        if (response.ok) {
+          return { ok: true, data };
+        }
+
+        const shouldRetry =
+          response.status === 503 ||
+          data?.error?.status === "UNAVAILABLE" ||
+          data?.error?.code === 503;
+
+        if (!shouldRetry || attempt === maxAttempts) {
+          return { ok: false, data };
+        }
+
+        const delayMs = attempt * 1000;
+        console.warn(
+          `Gemini indisponible, tentative ${attempt}/${maxAttempts}. Nouvelle tentative dans ${delayMs}ms.`,
+          data
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
-    );
 
-    const data = await response.json();
+      return { ok: false, data: lastData };
+    }
 
-    console.log("Réponse Gemini :", data);
+    const result = await callGemini(prompt);
 
-    if (!response.ok) {
+    console.log("Réponse Gemini :", result.data);
+
+    if (!result.ok) {
       return res.status(500).json({
-        reply: "Erreur Gemini : " + JSON.stringify(data)
+        reply:
+          "Erreur Gemini : " +
+          JSON.stringify(result.data) +
+          " (réessayé automatiquement si le service était occupé)."
       });
     }
 
     const reply =
-      data.candidates?.[0]?.content?.parts?.[0]?.text ||
+      result.data.candidates?.[0]?.content?.parts?.[0]?.text ||
       "Gemini n’a pas renvoyé de texte.";
 
     res.json({
