@@ -13,13 +13,13 @@ app.get("/", (req, res) => {
 
 app.post("/chat", async (req, res) => {
   try {
-    const apiKey = process.env.GEMINI_API_KEY_2 || process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const apiKey = process.env.OPENAI_API_KEY;
+    const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
     if (!apiKey) {
       return res.status(500).json({
         reply:
-          "Clé Gemini manquante. Défini la variable d'environnement GEMINI_API_KEY_2 ou GEMINI_API_KEY."
+          "Clé OpenAI manquante. Défini la variable d'environnement OPENAI_API_KEY."
       });
     }
 
@@ -71,73 +71,36 @@ Dernière question du visiteur :
 ${message}
 `;
 
-    async function callGemini(promptText) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const maxAttempts = 3;
-      let lastData = null;
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "Tu es un assistant commercial d'Accessim AI." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.7
+      })
+    });
 
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: promptText
-                  }
-                ]
-              }
-            ]
-          })
-        });
+    const data = await response.json();
 
-        const data = await response.json();
-        lastData = data;
+    console.log("Réponse OpenAI :", data);
 
-        if (response.ok) {
-          return { ok: true, data };
-        }
-
-        const shouldRetry =
-          response.status === 503 ||
-          data?.error?.status === "UNAVAILABLE" ||
-          data?.error?.code === 503;
-
-        if (!shouldRetry || attempt === maxAttempts) {
-          return { ok: false, data };
-        }
-
-        const delayMs = attempt * 1000;
-        console.warn(
-          `Gemini indisponible, tentative ${attempt}/${maxAttempts}. Nouvelle tentative dans ${delayMs}ms.`,
-          data
-        );
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      }
-
-      return { ok: false, data: lastData };
-    }
-
-    const result = await callGemini(prompt);
-
-    console.log("Réponse Gemini :", result.data);
-
-    if (!result.ok) {
+    if (!response.ok) {
       return res.status(500).json({
-        reply:
-          "Erreur Gemini : " +
-          JSON.stringify(result.data) +
-          " (réessayé automatiquement si le service était occupé)."
+        reply: "Erreur OpenAI : " + JSON.stringify(data)
       });
     }
 
     const reply =
-      result.data.candidates?.[0]?.content?.parts?.[0]?.text ||
-      "Gemini n’a pas renvoyé de texte.";
+      data.choices?.[0]?.message?.content ||
+      "OpenAI n’a pas renvoyé de texte.";
 
     res.json({
       reply: reply
